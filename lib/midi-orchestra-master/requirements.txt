@@ -1,0 +1,6 @@
+librosa
+matplotlib
+numpy
+pretty-midi
+scikit-learn
+scipy

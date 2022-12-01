@@ -1,1 +1,9 @@
-lib/
+lib/*
+
+# Lib files that I modified
+!lib/midi-orchestra-master
+lib/midi-orchestra-master/*
+!lib/midi-orchestra-master/requirements.txt
+
+data/*
+!data/README.md
