@@ -11,5 +11,6 @@ Notes:
 ## Installation
 
 - Libraries required:
-  - https://github.com/ai-unit/midi-orchestra (lib/midi-orchestra-master/)
+  - https://github.com/ai-unit/midi-orchestra (src/lib/midi_orchestra_master/)
     - `pip install -r requirements.txt`
+    - Added empty \_\_init\_\_.py into src/lib/midi_orchestra_master/

@@ -1,9 +1,10 @@
-lib/*
+src/lib/*
+!src/lib/__init__.py
 
 # Lib files that I modified
-!lib/midi-orchestra-master
-lib/midi-orchestra-master/*
-!lib/midi-orchestra-master/requirements.txt
+!src/lib/midi-orchestra-master
+src/lib/midi-orchestra-master/*
+!src/lib/midi-orchestra-master/requirements.txt
 
 data/*
 !data/README.md
