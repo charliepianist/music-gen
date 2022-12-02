@@ -1,4 +1,4 @@
-from ..lib.midi_orchestra_master.common import get_files, check_target_folder, is_invalid_file, make_file_path
+from lib.midi_orchestra_master.common import get_files, check_target_folder, is_invalid_file, make_file_path
 import pretty_midi as midi
 import math
 
@@ -127,20 +127,18 @@ def _generate_files(file_path, target_folder, splits):
 
         print('Saved MIDI file at "{}".'.format(split_file_path))
 
-def split_midis(files : str, target_folder : str, duration : int):
-    file_paths = get_files(files)
+def split_midi(file : str, target_folder : str, duration : int):
     check_target_folder(target_folder)
 
-    for file_path in file_paths:
-        if is_invalid_file(file_path):
-            continue
+    if is_invalid_file(file):
+        return
 
-        # Read MIDi file and clean up
-        score = midi.PrettyMIDI(file_path)
-        score.remove_invalid_notes()
+    # Read MIDi file and clean up
+    score = midi.PrettyMIDI(file)
+    score.remove_invalid_notes()
 
-        # Split MIDI file!
-        splits = _split_score(score, duration)
+    # Split MIDI file!
+    splits = _split_score(score, duration)
 
-        # Generate MIDI files from splits
-        _generate_files(file_path, target_folder, splits)
+    # Generate MIDI files from splits
+    _generate_files(file, target_folder, splits)

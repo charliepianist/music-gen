@@ -1,6 +1,9 @@
 import pandas as pd
 import numpy as np
-from common import get_midi_dir, get_raw_dir, get_common_composers, constants, drop_other_cols, drop_important_nas, drop_raw_paths_that_dont_exist
+from parsers.common import get_midi_dir, get_raw_dir, get_common_composers
+from parsers.common import constants
+from parsers.common import generate_splitted
+from parsers.common import drop_other_cols, drop_important_nas, drop_raw_paths_that_dont_exist
 import os
 
 METADATA_FILE = 'full_music_pieces_youtube_similarity_pianosoloprob_split.csv'
@@ -46,9 +49,7 @@ def get_paths():
     Read metadata, then generate splitted MIDIs for the appropriate files, then return df with those splits
     """
     df = get_raw_df()
+    generate_splitted(df, get_midi_dir(DIR_NAME))
 
-    print(df.head())
-
-# This script should not be called as main
-if __name__ == '__main__':
-    get_paths()
+    # Get splits and return final df
+    return df

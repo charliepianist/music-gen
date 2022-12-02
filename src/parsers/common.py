@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from parsers.splitter import split_midi
 
 constants = {
     'DATA_DIR': 'D:\\Projects\\Music Gen\\data',
@@ -43,3 +44,14 @@ def drop_raw_paths_that_dont_exist(df : pd.DataFrame, dir : str) -> pd.DataFrame
     """ Drop rows for which their raw_path does not exist """
     existing_files = [os.path.join(dir, path) for path in os.listdir(dir)]
     return df[df['raw_path'].isin(existing_files)]
+
+def generate_splitted(df: pd.DataFrame, target_folder : str) -> None:
+    """ Generate splitted midis for all files in a raw df """
+    for i in range(len(df)):
+        row = df.iloc[i]
+        tail = os.path.split(row['raw_path'])[1]
+        basename = tail[:tail.index('.')]
+
+        if not os.path.isfile(os.path.join(target_folder, basename + '-split-1.mid')):
+            split_midi(row['raw_path'], target_folder, row['duration'])
+        
