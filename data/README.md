@@ -1,3 +1,7 @@
+## When does processed data need to be cleared?
+
+- If duration is changed (as of 12/1/2022, duration is 30s), see parsers/common.py for the value of that
+
 ## Datasets
 
 - GiantMIDI-Piano (https://github.com/bytedance/GiantMIDI-Piano)
