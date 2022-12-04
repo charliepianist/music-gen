@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from parsers.splitter import split_midi
+import itertools
 
 constants = {
     'DATA_DIR': 'D:\\Projects\\Music Gen\\data',
@@ -45,13 +46,37 @@ def drop_raw_paths_that_dont_exist(df : pd.DataFrame, dir : str) -> pd.DataFrame
     existing_files = [os.path.join(dir, path) for path in os.listdir(dir)]
     return df[df['raw_path'].isin(existing_files)]
 
-def generate_splitted(df: pd.DataFrame, target_folder : str) -> None:
-    """ Generate splitted midis for all files in a raw df """
+def generate_splitted(df: pd.DataFrame, target_folder : str) -> pd.DataFrame:
+    """ Generate splitted midis for all files in a raw df and return original df along with
+        'path' column that contains splitted paths """
+    tails = df['raw_path'].map(lambda raw_path : os.path.split(raw_path)[1])
+    df['_base'] = tails.map(lambda tail : tail[:tail.index('.')])
     for i in range(len(df)):
         row = df.iloc[i]
-        tail = os.path.split(row['raw_path'])[1]
-        basename = tail[:tail.index('.')]
+        basename = row['_base']
 
+        # Don't re-split if already donw
         if not os.path.isfile(os.path.join(target_folder, basename + '-split-1.mid')):
             split_midi(row['raw_path'], target_folder, row['duration'])
-        
+    
+    splitted_and_base = pd.DataFrame({'path': os.listdir(target_folder)})
+    # Split found directories into base and the split num
+    components = splitted_and_base['path'].str.rsplit('-split', n=1, expand=True)
+    splitted_and_base['_base'] = components[0]
+    splitted_and_base['split_num'] = components[1].str.slice(start=1, stop=-4)
+
+    # Filter to relevant files
+    splitted_and_base = splitted_and_base[splitted_and_base['_base'].isin(df['_base'])]
+
+    # Join path back with target_folder
+    splitted_and_base['path'] = splitted_and_base['path'].map(lambda path : os.path.join(target_folder, path))
+
+    # Merge and return
+    df_merged = splitted_and_base.merge(df, how='left', on='_base')
+    return df_merged.drop(columns=['_base'])
+
+def join_raw_df_with_splitted(df : pd.DataFrame, split_paths : pd.Series):
+    """ Join a raw df (i.e. what gets passed into generate_splitted) with a list of filepaths
+        of splitted MIDI files. This is intended to be called with the df and output from generate_splitted. """
+    pass
+    

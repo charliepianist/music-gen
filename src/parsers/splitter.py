@@ -1,6 +1,7 @@
-from lib.midi_orchestra_master.common import get_files, check_target_folder, is_invalid_file, make_file_path
+from lib.midi_orchestra_master.common import check_target_folder, is_invalid_file
 import pretty_midi as midi
 import math
+import os
 
 def _find_elements_in_range(elements, start_time, end_time):
     """Filters elements which are within a time range."""
@@ -109,10 +110,19 @@ def _split_score(score, split_every_sec):
 
     return splits
 
+def _make_file_path(file_path, target_folder_path, ext='mid', suffix=None):
+    """Generates a file path for storing new files."""
+
+    base_name = os.path.splitext(os.path.basename(file_path))[0]
+    file_name = '{}{}.{}'.format(base_name,
+                                 '-{}'.format(suffix) if suffix else '',
+                                 ext)
+    return os.path.join(target_folder_path, file_name)
 
 def _generate_files(file_path, target_folder, splits):
     """Saves multiple splitted MIDI files in a folder."""
 
+    split_file_paths = []
     for split_index, split in enumerate(splits):
         split_score = midi.PrettyMIDI()
         split_score.time_signature_changes = split['time_signature_changes']
@@ -120,14 +130,16 @@ def _generate_files(file_path, target_folder, splits):
         split_score.instruments = split['instruments']
 
         # Save MIDI file
-        split_file_path = make_file_path(
+        split_file_path = _make_file_path(
             file_path, target_folder,
             suffix='split-{}'.format(split_index + 1))
         split_score.write(split_file_path)
 
         print('Saved MIDI file at "{}".'.format(split_file_path))
+        split_file_paths.append(split_file_path)
+    return split_file_paths
 
-def split_midi(file : str, target_folder : str, duration : int):
+def split_midi(file : str, target_folder : str, duration : int) -> list[str]:
     check_target_folder(target_folder)
 
     if is_invalid_file(file):
@@ -141,4 +153,4 @@ def split_midi(file : str, target_folder : str, duration : int):
     splits = _split_score(score, duration)
 
     # Generate MIDI files from splits
-    _generate_files(file, target_folder, splits)
+    return _generate_files(file, target_folder, splits)

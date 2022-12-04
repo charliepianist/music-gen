@@ -44,12 +44,17 @@ def get_raw_df():
 
     return df
 
-def get_paths():
+def get_paths(minimal=False):
     """
     Read metadata, then generate splitted MIDIs for the appropriate files, then return df with those splits
     """
+    # Read in csv
     df = get_raw_df()
-    generate_splitted(df, get_midi_dir(DIR_NAME))
+    
+    # For testing
+    if minimal:
+        df = df[:5]
 
-    # Get splits and return final df
+    # Generate splits and merge df with splits
+    df = generate_splitted(df, get_midi_dir(DIR_NAME))
     return df
