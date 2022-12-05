@@ -74,9 +74,3 @@ def generate_splitted(df: pd.DataFrame, target_folder : str) -> pd.DataFrame:
     # Merge and return
     df_merged = splitted_and_base.merge(df, how='left', on='_base')
     return df_merged.drop(columns=['_base'])
-
-def join_raw_df_with_splitted(df : pd.DataFrame, split_paths : pd.Series):
-    """ Join a raw df (i.e. what gets passed into generate_splitted) with a list of filepaths
-        of splitted MIDI files. This is intended to be called with the df and output from generate_splitted. """
-    pass
-    

@@ -9,7 +9,7 @@ import os
 METADATA_FILE = 'full_music_pieces_youtube_similarity_pianosoloprob_split.csv'
 DIR_NAME = 'GiantMIDI'
 MIN_COMPOSER_ROWS = 10 # Only count composers with this many pieces
-MIDI_PARSER = 'default'
+MIDI_PARSER = 'giant_midi'
 
 def get_raw_df():
     """
