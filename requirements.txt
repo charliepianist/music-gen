@@ -1,6 +1,8 @@
 librosa
 matplotlib
+mido
 numpy
 pretty-midi
 scikit-learn
 scipy
+torch

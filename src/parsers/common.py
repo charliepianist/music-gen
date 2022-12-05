@@ -20,6 +20,9 @@ def get_midi_dir(dir_name : str, *additional_dirs):
 def get_raw_dir(dir_name : str, *additional_dirs):
     return _get_dir(dir_name, constants['RAW_DIR'], *additional_dirs)
 
+def get_data_dir(*additional_dirs):
+    return os.path.join(constants['DATA_DIR'], *additional_dirs)
+
 def get_common_composers(df : pd.DataFrame, min_count):
     """ Get the composers who show up at least min_count in df (which must have a last_name column) """
     last_names = df['last_name']

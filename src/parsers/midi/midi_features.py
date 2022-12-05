@@ -12,6 +12,8 @@ SAMPLE_DURATION = constants['SAMPLE_DURATION']
 TICKS_PER_SECOND = 25
 TOTAL_TICKS = SAMPLE_DURATION * TICKS_PER_SECOND
 
+FLATTENED_FEATURES = True
+
 class MidiFeatures:
     """
         Data is represented as n x 88 feature space, where
@@ -49,21 +51,18 @@ class MidiFeatures:
         """
             Merge row with features
         """
-        feature_dict = { 'feature_' + str(i * NUM_NOTES + j) : self.features[i][j] for i in range(TOTAL_TICKS) for j in range(NUM_NOTES)}
+        if FLATTENED_FEATURES:
+            feature_dict = { 'feature_' + str(i * NUM_NOTES + j) : self.features[i][j] for i in range(TOTAL_TICKS) for j in range(NUM_NOTES)}
+        else:
+            feature_dict = { 'feature_' + str(i) : self.features[i] for i in range(TOTAL_TICKS) }
         feature_series = pd.Series(feature_dict)
         return pd.concat([row, feature_series])
-
-    def unmerge_pd_row(self, row : pd.Series):
-        """
-            Undo merge from merge_pd_row
-        """
-        feature_series = row.filter(like='feature_')
-        return np.reshape(feature_series.to_numpy(), (TOTAL_TICKS, NUM_NOTES))
 
     def save_midi(self, path : str):
         """
             Inefficiently save MidiFeatures as midi to path. This is intended for debugging and is NOT efficient.
         """
+        # self.features = unmerge_pd_row(self.merge_pd_row(pd.Series({'a': 1, 'b': 2})))
         tempo = 500000 # microseconds per beat
         mid = MidiFile()
         track = MidiTrack()
@@ -92,6 +91,16 @@ class MidiFeatures:
 
         # Save file
         mid.save(path)
+
+def unmerge_pd_row(row : pd.Series):
+    """
+        Undo merge from merge_pd_row
+    """
+    feature_series = row.filter(like='feature_')
+    if FLATTENED_FEATURES:
+        return np.reshape(feature_series.to_numpy(), (TOTAL_TICKS, NUM_NOTES))
+    else:
+        return np.reshape(np.stack(feature_series.to_numpy()), (TOTAL_TICKS, NUM_NOTES))
 
 # ================================= Helpers ==========================================
 def giant_midi_features_of_midi(mid):
