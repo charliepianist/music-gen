@@ -8,15 +8,19 @@ from parsers.common import get_data_dir, get_model_dir
 from model.df_dataset import DfDataset
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import DatasetFolder
-from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES
+from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES, unmerge_pd_row
 
 DATA_DIR = get_data_dir('rows', 'class_0')
+DATA_DIR_DATASET_FOLDER = get_data_dir('rows')
 DATA_MINIMAL_DIR = get_data_dir('rows', 'minimal')
+def get_model_checkpoint_file(epochs):
+    return get_model_dir('vae_checkpoint_' + str(epochs) + '.pth')
 MODEL_FILE = get_model_dir('vae.pth')
 TRAIN_VALID_SPLIT = 0.2 # Percent of training data to be used for validation
 LATENT_DIMS = 50 # Latent space dimensions
 BATCH_SIZE = 256
-NUM_EPOCHS = 10000
+NUM_EPOCHS = 1000
+CHECKPOINT_EVERY = 5
 
 ### Training function
 def train_epoch(vae, device, dataloader, optimizer):
@@ -117,15 +121,13 @@ if __name__ == '__main__':
 
     # Dataset
     def getitem(file):
-        print('loading...')
         row = pd.read_pickle(file)
-        x = row[[column for column in row.index if 'feature_' in column]].astype('float32').to_numpy()
-        x = np.reshape(x, (TOTAL_TICKS, NUM_NOTES))
+        x = unmerge_pd_row(row)
         return torch.tensor(x)
     if cache_all: 
         dataset = DfDataset(DATA_DIR)
     else: 
-        dataset = DatasetFolder(DATA_DIR, getitem, extensions=('pkl',))
+        dataset = DatasetFolder(DATA_DIR_DATASET_FOLDER, getitem, extensions=('pkl',))
 
     m = len(dataset)
     train_data, val_data = random_split(dataset, [m - int(m*TRAIN_VALID_SPLIT), int(m*TRAIN_VALID_SPLIT)])
@@ -153,6 +155,9 @@ if __name__ == '__main__':
         val_losses.append(val_loss)
         print('\n EPOCH {}/{} \t train loss {:.3f} \t val loss {:.3f}'.format(epoch + 1, NUM_EPOCHS,train_loss,val_loss))
         # plot_ae_outputs(vae.encoder,vae.decoder,n=10)
+        if (epoch + 1) % CHECKPOINT_EVERY == 0:
+            torch.save(vae.state_dict(), get_model_checkpoint_file(epoch + 1))
+            print('Saved checkpoint', (epoch + 1))
 
     # Save model
     torch.save(vae.state_dict(), MODEL_FILE)

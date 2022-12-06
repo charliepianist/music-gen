@@ -96,7 +96,7 @@ def unmerge_pd_row(row : pd.Series):
     """
         Undo merge from merge_pd_row
     """
-    feature_series = row.filter(like='feature_')
+    feature_series = row.filter(like='feature_').astype('float32')
     if FLATTENED_FEATURES:
         return np.reshape(feature_series.to_numpy(), (TOTAL_TICKS, NUM_NOTES))
     else:

@@ -2,7 +2,7 @@ from torch.utils.data import Dataset
 import pandas as pd
 import torch
 import numpy as np
-from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES
+from parsers.midi.midi_features import unmerge_pd_row
 import os
 
 class DfDataset(Dataset):
@@ -17,10 +17,10 @@ class DfDataset(Dataset):
         all_rows = []
         for row_num in range(num_rows):
             row = pd.read_pickle(os.path.join(self.data_dir, 'row-' + str(row_num) + '.pkl'))
-            x = row[[column for column in row.index if 'feature_' in column]].astype('float32').to_numpy()
+            x = unmerge_pd_row(row)
             all_rows.append(x)
 
-        self.x_train = torch.tensor(np.array(all_rows))
+        self.x_train = torch.tensor(np.array(all_rows)).to_sparse()
 
     def __len__(self):
         return len(self.x_train)
