@@ -3,19 +3,27 @@ import pandas as pd
 import torch
 import numpy as np
 from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES
+import os
 
 class DfDataset(Dataset):
-    def __init__(self, file_name):
-        df = pd.read_csv(file_name)
-        
-        x = df[[column for column in df.columns if 'feature_' in column]].to_numpy()
-        x = np.reshape(x, (len(df), TOTAL_TICKS, NUM_NOTES))
+    """
+        Cache ENTIRE dataset in memory. This is much faster for training but is memory constrained
+    """
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
 
-        self.x_train = torch.tensor(x, dtype=torch.float32)
+        files = os.listdir(data_dir)
+        num_rows = len(files)
+        all_rows = []
+        for row_num in range(num_rows):
+            row = pd.read_pickle(os.path.join(self.data_dir, 'row-' + str(row_num) + '.pkl'))
+            x = row[[column for column in row.index if 'feature_' in column]].astype('float32').to_numpy()
+            all_rows.append(x)
+
+        self.x_train = torch.tensor(np.array(all_rows))
 
     def __len__(self):
         return len(self.x_train)
     
     def __getitem__(self,idx):
-        # 0 is arbitrary label
         return self.x_train[idx], 0

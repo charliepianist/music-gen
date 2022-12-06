@@ -58,16 +58,16 @@ class Decoder(nn.Module):
         self.unflatten = nn.Unflatten(dim=1, unflattened_size=(64, 45, 3))
 
         self.decoder_conv = nn.Sequential(
-            nn.ConvTranspose2d(64, 32, 3, stride=2, padding=0, output_padding=0),
+            nn.ConvTranspose2d(64, 32, 3, stride=2, padding=0, output_padding=(0,1)),
             nn.BatchNorm2d(32),
             nn.ReLU(True),
-            nn.ConvTranspose2d(32, 16, 7, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(32, 16, 7, stride=2, padding=1, output_padding=(0,0)),
             nn.BatchNorm2d(16),
             nn.ReLU(True),
-            nn.ConvTranspose2d(16, 8, 7, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(16, 8, 7, stride=2, padding=1, output_padding=(0,1)),
             nn.BatchNorm2d(8),
             nn.ReLU(True),
-            nn.ConvTranspose2d(8, 1, 7, stride=2, padding=1, output_padding=1)
+            nn.ConvTranspose2d(8, 1, 7, stride=2, padding=1, output_padding=(1,1))
         )
         
     def forward(self, x):
@@ -88,3 +88,7 @@ class VariationalAutoencoder(nn.Module):
         x = x.to(self.device)
         z = self.encoder(x)
         return self.decoder(z)
+
+    def decode(self, z):
+        z = z.to(self.device)
+        return self.decoder(x)

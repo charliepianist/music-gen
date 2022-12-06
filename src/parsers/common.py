@@ -8,6 +8,7 @@ constants = {
     'DATA_DIR': 'D:\\Projects\\Music Gen\\data',
     'MIDI_DIR': 'processed',
     'RAW_DIR': 'raw',
+    'MODEL_DIR': 'D:\\Projects\\Music Gen\\out',
     'SAMPLE_DURATION': 30,
 }
 
@@ -22,6 +23,9 @@ def get_raw_dir(dir_name : str, *additional_dirs):
 
 def get_data_dir(*additional_dirs):
     return os.path.join(constants['DATA_DIR'], *additional_dirs)
+
+def get_model_dir(*additional_dirs):
+    return os.path.join(constants['MODEL_DIR'], *additional_dirs)
 
 def get_common_composers(df : pd.DataFrame, min_count):
     """ Get the composers who show up at least min_count in df (which must have a last_name column) """
@@ -53,16 +57,18 @@ def generate_splitted(df: pd.DataFrame, target_folder : str) -> pd.DataFrame:
     """ Generate splitted midis for all files in a raw df and return original df along with
         'path' column that contains splitted paths """
     tails = df['raw_path'].map(lambda raw_path : os.path.split(raw_path)[1])
-    df['_base'] = tails.map(lambda tail : tail[:tail.index('.')])
+    df['_base'] = tails.map(lambda tail : tail[:tail.rindex('.')])
+    
+    existing_files = os.listdir(target_folder)
     for i in range(len(df)):
         row = df.iloc[i]
         basename = row['_base']
 
         # Don't re-split if already donw
-        if not os.path.isfile(os.path.join(target_folder, basename + '-split-1.mid')):
+        if basename + '-split-1.mid' not in existing_files:
             split_midi(row['raw_path'], target_folder, row['duration'])
     
-    splitted_and_base = pd.DataFrame({'path': os.listdir(target_folder)})
+    splitted_and_base = pd.DataFrame({'path': list(sorted(os.listdir(target_folder)))})
     # Split found directories into base and the split num
     components = splitted_and_base['path'].str.rsplit('-split', n=1, expand=True)
     splitted_and_base['_base'] = components[0]
@@ -72,7 +78,8 @@ def generate_splitted(df: pd.DataFrame, target_folder : str) -> pd.DataFrame:
     splitted_and_base = splitted_and_base[splitted_and_base['_base'].isin(df['_base'])]
 
     # Join path back with target_folder
-    splitted_and_base['path'] = splitted_and_base['path'].map(lambda path : os.path.join(target_folder, path))
+    target_folder_series = pd.Series(np.full((len(splitted_and_base),), target_folder))
+    splitted_and_base['path'] = target_folder_series.str.cat(splitted_and_base['path'], sep=os.sep)
 
     # Merge and return
     df_merged = splitted_and_base.merge(df, how='left', on='_base')

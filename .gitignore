@@ -3,6 +3,8 @@
 src/lib/*
 !src/lib/__init__.py
 
+out/
+
 # Lib files that I modified
 !src/lib/midi-orchestra-master
 src/lib/midi-orchestra-master/*

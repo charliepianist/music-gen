@@ -1,16 +1,22 @@
-from parsers.main import get_data
+from parsers.main import save_data
 from model.vae import VariationalAutoencoder
 import torch
 import matplotlib.pyplot as plt
-from parsers.common import get_data_dir
+import numpy as np
+import pandas as pd
+from parsers.common import get_data_dir, get_model_dir
 from model.df_dataset import DfDataset
 from torch.utils.data import DataLoader, random_split
+from torchvision.datasets import DatasetFolder
 from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES
 
-DF_FILE = get_data_dir('data.csv')
+DATA_DIR = get_data_dir('rows', 'class_0')
+DATA_MINIMAL_DIR = get_data_dir('rows', 'minimal')
+MODEL_FILE = get_model_dir('vae.pth')
 TRAIN_VALID_SPLIT = 0.2 # Percent of training data to be used for validation
 LATENT_DIMS = 50 # Latent space dimensions
 BATCH_SIZE = 256
+NUM_EPOCHS = 10000
 
 ### Training function
 def train_epoch(vae, device, dataloader, optimizer):
@@ -83,19 +89,44 @@ def test_epoch(vae, device, dataloader):
 
 if __name__ == '__main__':
 
-    inp = input('Regenerate df? (Y/N, default N)')
-    if inp == 'Y' or inp == 'y':
-        print('Regenerating df...')
-        df = get_data(minimal=True)
-        df.to_csv(DF_FILE)
-        print('Saved df!')
-
     inp = input('Use manual seed? (Y/N, default N)')
     if inp == 'Y' or inp == 'y':
         torch.manual_seed(0)
 
+    inp = input('Regenerate df? (Y/N, default N)')
+    regenerate_df = False
+    minimal_df = False
+    if inp == 'Y' or inp == 'y':
+        regenerate_df = True
+        inp = input('Minimal df? (Y/N, default N)')
+        if inp == 'Y' or inp == 'y':
+            minimal_df = True
+        
+    inp = input('Keep all data in memory? (Y/N, default N)')
+    cache_all = False
+    if inp == 'Y' or inp == 'y':
+        cache_all = True
+
+    if regenerate_df:
+        print('Regenerating df...')
+        if minimal_df:
+            save_data(DATA_MINIMAL_DIR, minimal=True)
+        else:
+            save_data(DATA_DIR)
+        print('Saved df!')
+
     # Dataset
-    dataset = DfDataset(DF_FILE)
+    def getitem(file):
+        print('loading...')
+        row = pd.read_pickle(file)
+        x = row[[column for column in row.index if 'feature_' in column]].astype('float32').to_numpy()
+        x = np.reshape(x, (TOTAL_TICKS, NUM_NOTES))
+        return torch.tensor(x)
+    if cache_all: 
+        dataset = DfDataset(DATA_DIR)
+    else: 
+        dataset = DatasetFolder(DATA_DIR, getitem, extensions=('pkl',))
+
     m = len(dataset)
     train_data, val_data = random_split(dataset, [m - int(m*TRAIN_VALID_SPLIT), int(m*TRAIN_VALID_SPLIT)])
     train_loader = DataLoader(train_data, batch_size=BATCH_SIZE)
@@ -109,13 +140,26 @@ if __name__ == '__main__':
     lr = 1e-3 
     optim = torch.optim.Adam(vae.parameters(), lr=lr, weight_decay=1e-5)
 
+    # Model needs to use cuda if available since data does
     if torch.cuda.is_available():
         vae.cuda()
     # Train
-    num_epochs = 50
-    for epoch in range(num_epochs):
+    train_losses = []
+    val_losses = []
+    for epoch in range(NUM_EPOCHS):
         train_loss = train_epoch(vae,device,train_loader,optim)
         val_loss = test_epoch(vae,device,valid_loader)
-        print('\n EPOCH {}/{} \t train loss {:.3f} \t val loss {:.3f}'.format(epoch + 1, num_epochs,train_loss,val_loss))
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        print('\n EPOCH {}/{} \t train loss {:.3f} \t val loss {:.3f}'.format(epoch + 1, NUM_EPOCHS,train_loss,val_loss))
         # plot_ae_outputs(vae.encoder,vae.decoder,n=10)
+
+    # Save model
+    torch.save(vae.state_dict(), MODEL_FILE)
+
+    # Plot losses
+    plt.plot(np.arange(NUM_EPOCHS), train_losses, label='Train loss')
+    plt.plot(np.arange(NUM_EPOCHS), val_losses, label='Val loss')
+    plt.legend()
+    plt.show()
 

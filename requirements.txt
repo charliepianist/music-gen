@@ -3,6 +3,7 @@ matplotlib
 mido
 numpy
 pretty-midi
+pyarrow
 scikit-learn
 scipy
 torch
