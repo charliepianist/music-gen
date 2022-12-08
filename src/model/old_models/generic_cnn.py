@@ -6,22 +6,26 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+"""
+I tried this with 20 latent Dims, trained for 10 epochs and stopped improving, was quite bad.
+"""
+
 # Features are TOTAL_TICKS x NUM_NOTES
 from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES
 
 class VariationalEncoder(nn.Module):
     def __init__(self, device, latent_dims):  
         super(VariationalEncoder, self).__init__()
-        self.conv1 = nn.Conv2d(1, 16, (5, 1), stride=(2,1), padding=(2,0)) # Very near in time
-        self.conv2 = nn.Conv2d(16, 32, (101, 1), stride=(2,1), padding=(50,0)) # around 8 seconds wide
-        self.batch2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 64, (5, 88), stride=(2,1), padding=(2,0)) # every 8 second window for ~1 second
+        self.conv1 = nn.Conv2d(1, 8, 7, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(8, 16, 7, stride=2, padding=1)
+        self.batch2 = nn.BatchNorm2d(16)
+        self.conv3 = nn.Conv2d(16, 32, 7, stride=2, padding=1)
         # self.batch3 = nn.BatchNorm2d(32)
         # self.conv4 = nn.Conv2d(32, 64, 3, stride=2, padding=0)  
         # self.linear1 = nn.Linear(64 * 45 * 3, 128)
-        self.linear1 = nn.Linear(64 * 94 * 1, 256)
-        self.linear2 = nn.Linear(256, latent_dims)
-        self.linear3 = nn.Linear(256, latent_dims)
+        self.linear1 = nn.Linear(32 * 91 * 8, 128)
+        self.linear2 = nn.Linear(128, latent_dims)
+        self.linear3 = nn.Linear(128, latent_dims)
 
         self.N = torch.distributions.Normal(0, 1)
         self.N.loc = self.N.loc.cuda() # hack to get sampling on the GPU
@@ -51,27 +55,33 @@ class Decoder(nn.Module):
     def __init__(self, latent_dims):
         super().__init__()
 
+        # self.decoder_lin = nn.Sequential(
+        #     nn.Linear(latent_dims, 128),
+        #     nn.ReLU(True),
+        #     nn.Linear(128, 64 * 45 * 3),
+        #     nn.ReLU(True)
+        # )
         self.decoder_lin = nn.Sequential(
-            nn.Linear(latent_dims, 256),
+            nn.Linear(latent_dims, 128),
             nn.ReLU(True),
-            nn.Linear(256, 64 * 94 * 1),
+            nn.Linear(128, 32 * 91 * 8),
             nn.ReLU(True)
         )
 
         # self.unflatten = nn.Unflatten(dim=1, unflattened_size=(64, 45, 3))
-        self.unflatten = nn.Unflatten(dim=1, unflattened_size=(64, 94, 1))
+        self.unflatten = nn.Unflatten(dim=1, unflattened_size=(32, 91, 8))
 
         self.decoder_conv = nn.Sequential(
             # nn.ConvTranspose2d(64, 32, 3, stride=2, padding=0, output_padding=(0,1)),
             # nn.BatchNorm2d(32),
             # nn.ReLU(True),
-            nn.ConvTranspose2d(64, 32, (5, 88), stride=(2,1), padding=(2,0), output_padding=(1,0)),
-            nn.BatchNorm2d(32),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(32, 16, (101, 1), stride=(2,1), padding=(50,0), output_padding=0),
+            nn.ConvTranspose2d(32, 16, 7, stride=2, padding=1, output_padding=(0,0)),
             nn.BatchNorm2d(16),
             nn.ReLU(True),
-            nn.ConvTranspose2d(16, 1, (5,1), stride=(2,1), padding=(2,0), output_padding=(1,0))
+            nn.ConvTranspose2d(16, 8, 7, stride=2, padding=1, output_padding=(0,1)),
+            nn.BatchNorm2d(8),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(8, 1, 7, stride=2, padding=1, output_padding=(1,1))
         )
         
     def forward(self, x):

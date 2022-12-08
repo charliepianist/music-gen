@@ -14,6 +14,16 @@ TOTAL_TICKS = SAMPLE_DURATION * TICKS_PER_SECOND
 
 FLATTENED_FEATURES = True
 
+MAX_VELOCITY = 128
+
+# What value should be allowed to _start_ a note?
+RECONSTRUCT_THRESHOLD = 0.1
+# What value must be maintained to consider it as still a note?
+RECONSTRUCT_CONTIGUOUS_THRESHOLD = 0.05
+# Linearly interpolate velocity from average value of features
+RECONSTRUCT_MIN_VELOCITY = 50
+RECONSTRUCT_MAX_VELOCITY = 100
+
 class MidiFeatures:
     """
         Data is represented as n x 88 feature space, where
@@ -24,7 +34,9 @@ class MidiFeatures:
         Worth considering
         - Different TICKS_PER_SECOND
         - Doing stuff by beats rather than time
-        - 0/1 instead of velocity and 0
+
+        Note that these are intended to be transformed via pd_row_to_torch, which makes velocities all 0 or 1
+        Consider making times 0.8, 0.6, 0.4, 0.2 around start and end of each note.
     """
     def __init__(self, path : str, parser : str):
         mid = MidiFile(path, clip=True)
@@ -62,35 +74,71 @@ class MidiFeatures:
         """
             Inefficiently save MidiFeatures as midi to path. This is intended for debugging and is NOT efficient.
         """
-        # self.features = unmerge_pd_row(self.merge_pd_row(pd.Series({'a': 1, 'b': 2})))
-        tempo = 500000 # microseconds per beat
-        mid = MidiFile()
-        track = MidiTrack()
-        mid.tracks.append(track)
-
-        mid.ticks_per_beat = 220 # Idk this is just what was used in GiantMIDI
-        track.append(MetaMessage('set_tempo', tempo=tempo, time=0))
-        ref_velocities = np.zeros((NUM_NOTES,))
-        last_time = 0 # In MIDI time
-
-        # just changes in velocities
-        for tick in range(TOTAL_TICKS):
-            new_velocities = self.features[tick]
-            cur_time = round(second2tick(tick / TICKS_PER_SECOND, mid.ticks_per_beat, tempo))
-            # Iterate through all notes
-            for note_num in range(NUM_NOTES):
-                if ref_velocities[note_num] != new_velocities[note_num]:
-                    # Time is only nonzero for the first note
-                    time = cur_time - last_time
-                    last_time = cur_time
-                    track.append(Message('note_on', note=note_num + MIN_NOTE, velocity=new_velocities[note_num], time=time))
-            ref_velocities = new_velocities
+        save_features_to_midi(self.features, path)
         
-        # Mark end of track
-        track.append(MetaMessage('end_of_track', time=1))
 
-        # Save file
-        mid.save(path)
+def save_features_to_midi(features, path: str):
+    tempo = 500000 # microseconds per beat
+    mid = MidiFile()
+    track = MidiTrack()
+    mid.tracks.append(track)
+
+    mid.ticks_per_beat = 220 # Idk this is just what was used in GiantMIDI
+    track.append(MetaMessage('set_tempo', tempo=tempo, time=0))
+    ref_velocities = np.zeros((NUM_NOTES,))
+    last_time = 0 # In MIDI time
+
+    # just changes in velocities
+    for tick in range(TOTAL_TICKS):
+        new_velocities = np.array(features[tick]).astype('int')
+        cur_time = round(second2tick(tick / TICKS_PER_SECOND, mid.ticks_per_beat, tempo))
+        # Iterate through all notes
+        for note_num in range(NUM_NOTES):
+            if ref_velocities[note_num] != new_velocities[note_num]:
+                # Time is only nonzero for the first note
+                time = cur_time - last_time
+                last_time = cur_time
+                track.append(Message('note_on', note=note_num + MIN_NOTE, velocity=new_velocities[note_num], time=time))
+        ref_velocities = new_velocities
+    
+    # Mark end of track
+    track.append(MetaMessage('end_of_track', time=1))
+
+    # Save file
+    mid.save(path)
+
+def save_torch_to_midi(features, path:str, reconstruct_thresh=RECONSTRUCT_THRESHOLD, reconstruct_contig_thresh=RECONSTRUCT_CONTIGUOUS_THRESHOLD, min_vel=RECONSTRUCT_MIN_VELOCITY, max_vel=RECONSTRUCT_MAX_VELOCITY):
+    features = np.array(features)
+    note_on = np.full((NUM_NOTES,), False)
+    ends = np.full((NUM_NOTES,), -1) # Where current string ends
+    velocities = np.full((NUM_NOTES,), -1) # what velocity to fill with
+
+    # Iterate 
+    for tick in range(TOTAL_TICKS):
+        for note in range(NUM_NOTES):
+            if features[tick][note] >= reconstruct_thresh:
+                # print('test')
+                # Start of a note, compute where it ends and its average velocity
+                note_on[note] = True
+                idx = tick
+                total_vel = 0
+                while idx < TOTAL_TICKS and features[idx][note] > reconstruct_contig_thresh:
+                    total_vel += features[idx][note]
+                    idx += 1
+                ends[note] = idx - 1
+                velocities[note] = (total_vel / (idx - tick)) * (max_vel - min_vel) + min_vel
+                # print(velocities[note], tick, note)
+
+            # Write note if relevant
+            if note_on[note]:
+                features[tick][note] = velocities[note]
+                if ends[note] == tick:
+                    # Note ends
+                    ends[note] = -1
+                    note_on[note] = False
+            else:
+                features[tick][note] = 0
+    return save_features_to_midi(features, path)
 
 def unmerge_pd_row(row : pd.Series):
     """
@@ -101,6 +149,16 @@ def unmerge_pd_row(row : pd.Series):
         return np.reshape(feature_series.to_numpy(), (TOTAL_TICKS, NUM_NOTES))
     else:
         return np.reshape(np.stack(feature_series.to_numpy()), (TOTAL_TICKS, NUM_NOTES))
+
+def pd_row_to_torch(row : pd.Series):
+    """
+        Undo merge from merge_pd_row
+    """
+    features = np.array(unmerge_pd_row(row))
+    features[features != 0] = 1
+
+    return features
+    # return features / MAX_VELOCITY
 
 # ================================= Helpers ==========================================
 def giant_midi_features_of_midi(mid):
