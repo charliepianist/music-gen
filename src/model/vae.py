@@ -32,13 +32,13 @@ class VariationalEncoder(nn.Module):
 
     def forward(self, x):
         x = x.to(self.device)
-        x = F.relu(self.conv1(x))
+        x = F.leaky_relu(self.conv1(x))
         x = F.relu(self.batch2(self.conv2(x)))
         # x = F.relu(self.batch3(self.conv3(x)))
         # x = F.relu(self.conv4(x))
-        x = F.relu(self.conv3(x))
+        x = F.leaky_relu(self.conv3(x))
         x = torch.flatten(x, start_dim=1)
-        x = F.relu(self.linear1(x))
+        x = F.leaky_relu(self.linear1(x))
         mu =  self.linear2(x)
         sigma = torch.exp(self.linear3(x))
         z = mu + sigma*self.N.sample(mu.shape)
@@ -53,9 +53,9 @@ class Decoder(nn.Module):
 
         self.decoder_lin = nn.Sequential(
             nn.Linear(latent_dims, 256),
-            nn.ReLU(True),
+            nn.LeakyReLU(True),
             nn.Linear(256, 64 * 94 * 1),
-            nn.ReLU(True)
+            nn.LeakyReLU(True)
         )
 
         # self.unflatten = nn.Unflatten(dim=1, unflattened_size=(64, 45, 3))
@@ -67,10 +67,10 @@ class Decoder(nn.Module):
             # nn.ReLU(True),
             nn.ConvTranspose2d(64, 32, (5, 88), stride=(2,1), padding=(2,0), output_padding=(1,0)),
             nn.BatchNorm2d(32),
-            nn.ReLU(True),
+            nn.LeakyReLU(True),
             nn.ConvTranspose2d(32, 16, (101, 1), stride=(2,1), padding=(50,0), output_padding=0),
             nn.BatchNorm2d(16),
-            nn.ReLU(True),
+            nn.LeakyReLU(True),
             nn.ConvTranspose2d(16, 1, (5,1), stride=(2,1), padding=(2,0), output_padding=(1,0))
         )
         
@@ -78,7 +78,6 @@ class Decoder(nn.Module):
         x = self.decoder_lin(x)
         x = self.unflatten(x)
         x = self.decoder_conv(x)
-        x = torch.sigmoid(x)
         return x
 
 class VariationalAutoencoder(nn.Module):

@@ -8,7 +8,7 @@ from parsers.common import get_data_dir, get_model_dir
 from model.df_dataset import DfDataset
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import DatasetFolder
-from torch.nn import BCELoss
+from torch.nn import BCEWithLogitsLoss
 from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES, pd_row_to_torch
 
 DATA_DIR = get_data_dir('rows', 'class_0')
@@ -22,8 +22,8 @@ MODEL_FILE = get_model_dir('vae.pth')
 TRAIN_VALID_SPLIT = 0.2 # Percent of training data to be used for validation
 LATENT_DIMS = 128 # Latent space dimensions
 BATCH_SIZE = 256
-NUM_EPOCHS = 1000
-CHECKPOINT_EVERY = 1
+NUM_EPOCHS = 50000
+CHECKPOINT_EVERY = 25
 MANUAL_SEED = 0
 
 ### Training function
@@ -48,10 +48,10 @@ def train_epoch(vae, device, dataloader, optimizer, losser):
         # torch.nn.utils.clip_grad_norm_(vae.parameters(),5)
         optimizer.step()
         # Print batch loss
-        # print('\t partial train loss (single batch): %f' % (loss.item()))
+        print('\t partial train loss (single batch): %f' % (loss.item()))
         train_loss+=loss.item()
 
-    return train_loss / len(dataloader.dataset)
+    return train_loss / len(dataloader.dataset) * BATCH_SIZE
 
 ### Testing function
 def test_epoch(vae, device, dataloader, losser):
@@ -72,7 +72,7 @@ def test_epoch(vae, device, dataloader, losser):
             loss = losser(x_hat, x) + vae.encoder.kl
             val_loss += loss.item()
 
-    return val_loss / len(dataloader.dataset)
+    return val_loss / len(dataloader.dataset) * BATCH_SIZE
 
 # def plot_ae_outputs(encoder,decoder,n=10):
 #     plt.figure(figsize=(16,4.5))
@@ -147,10 +147,10 @@ if __name__ == '__main__':
     print(f'Selected device: {device}')
 
     vae = VariationalAutoencoder(device, latent_dims=LATENT_DIMS)
-    lr = 1e-3
+    lr = 1e-4
     optim = torch.optim.Adam(vae.parameters(), lr=lr, weight_decay=1e-5)
 
-    losser = BCELoss(reduction='sum')
+    losser = BCEWithLogitsLoss(reduction='mean')
 
     # Model needs to use cuda if available since data does
     if torch.cuda.is_available():

@@ -1,4 +1,4 @@
-import os
+import torch
 from mido import MidiFile, MidiTrack, MetaMessage, Message, tick2second, second2tick, merge_tracks
 import pandas as pd
 import numpy as np
@@ -108,6 +108,7 @@ def save_features_to_midi(features, path: str):
     mid.save(path)
 
 def save_torch_to_midi(features, path:str, reconstruct_thresh=RECONSTRUCT_THRESHOLD, reconstruct_contig_thresh=RECONSTRUCT_CONTIGUOUS_THRESHOLD, min_vel=RECONSTRUCT_MIN_VELOCITY, max_vel=RECONSTRUCT_MAX_VELOCITY):
+    features = torch.sigmoid(features)
     features = np.array(features)
     note_on = np.full((NUM_NOTES,), False)
     ends = np.full((NUM_NOTES,), -1) # Where current string ends
