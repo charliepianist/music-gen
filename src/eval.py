@@ -1,5 +1,5 @@
 from parsers.main import save_data
-from model.vae import VariationalAutoencoder
+from model.vae import LSTM_VAE
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +9,7 @@ from model.df_dataset import DfDataset
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import DatasetFolder
 from parsers.midi.midi_features import TOTAL_TICKS, NUM_NOTES, pd_row_to_torch, save_torch_to_midi
-from train import DATA_DIR_DATASET_FOLDER, TRAIN_VALID_SPLIT, LATENT_DIMS, MANUAL_SEED, DATA_DIR
+from train import DATA_DIR_DATASET_FOLDER, TRAIN_VALID_SPLIT, LATENT_DIMS, MANUAL_SEED, DATA_DIR, HIDDEN_DIMS, NUM_LAYERS, DROPOUT
 
 OUT_FILE = get_model_dir('eval.mid')
 
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # Parameterization
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print(f'Selected device: {device}')
-    vae = VariationalAutoencoder(device, latent_dims=LATENT_DIMS)
+    vae = LSTM_VAE(device, latent_dims=LATENT_DIMS, hidden_size=HIDDEN_DIMS, num_layers=NUM_LAYERS, dropout=DROPOUT)
     vae.load_state_dict(torch.load(get_model_dir('vae_checkpoint_' + input('Model #: ') + '.pth')))
     vae.eval()
     if torch.cuda.is_available():
@@ -55,15 +55,15 @@ if __name__ == '__main__':
     with torch.no_grad():
         for x, _ in loader:
             x = x.to(device)
-            x = x.view(-1, 1, TOTAL_TICKS, NUM_NOTES)
+            x = x.view(-1, TOTAL_TICKS, NUM_NOTES)
             encoded_data = vae.encoder(x)
             reconstructed = vae.decode(encoded_data)
-            # Returns (1, 1, *features) shape (since first two are batch_size, num_channels)
+            # Returns (1, *features) shape (since first is batch_size)
 
             # Convert to midi and save
             # for i in range(len(reconstructed[0][0])):
             #     for j in range(len(reconstructed[0][0][0])):
             #         if reconstructed[0][0][i][j] != 0:
             #             print(reconstructed[0][0][i][j])
-            save_torch_to_midi(reconstructed[0][0].cpu(), OUT_FILE, reconstruct_thresh=reconstruct_thresh, reconstruct_contig_thresh=reconstruct_contig_thresh)
+            save_torch_to_midi(reconstructed[0].cpu(), OUT_FILE, reconstruct_thresh=reconstruct_thresh, reconstruct_contig_thresh=reconstruct_contig_thresh)
             break

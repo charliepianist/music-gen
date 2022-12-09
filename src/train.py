@@ -1,5 +1,5 @@
 from parsers.main import save_data
-from model.vae import VariationalAutoencoder
+from model.vae import LSTM_VAE
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,10 +21,13 @@ def get_loss_checkpoint_file(epochs):
 MODEL_FILE = get_model_dir('vae.pth')
 TRAIN_VALID_SPLIT = 0.2 # Percent of training data to be used for validation
 LATENT_DIMS = 128 # Latent space dimensions
+HIDDEN_DIMS = 128
+NUM_LAYERS = 2
 BATCH_SIZE = 256
 NUM_EPOCHS = 50000
 CHECKPOINT_EVERY = 25
 MANUAL_SEED = 0
+DROPOUT = 0.2
 
 ### Training function
 def train_epoch(vae, device, dataloader, optimizer, losser):
@@ -36,7 +39,7 @@ def train_epoch(vae, device, dataloader, optimizer, losser):
         # Move tensor to the proper device
         x = x.to(device)
         # Switch batch and num channels (for some reason they are switched)
-        x = x.view(-1, 1, TOTAL_TICKS, NUM_NOTES)
+        x = x.view(-1, TOTAL_TICKS, NUM_NOTES)
         x_hat = vae(x)
         # Evaluate loss
         # loss = ((x - x_hat)**2).sum() + vae.encoder.kl
@@ -48,7 +51,7 @@ def train_epoch(vae, device, dataloader, optimizer, losser):
         # torch.nn.utils.clip_grad_norm_(vae.parameters(),5)
         optimizer.step()
         # Print batch loss
-        print('\t partial train loss (single batch): %f' % (loss.item()))
+        # print('\t partial train loss (single batch): %f' % (loss.item()))
         train_loss+=loss.item()
 
     return train_loss / len(dataloader.dataset) * BATCH_SIZE
@@ -63,9 +66,9 @@ def test_epoch(vae, device, dataloader, losser):
             # Move tensor to the proper device
             x = x.to(device)
             # Switch batch and num channels (for some reason they are switched)
-            x = x.view(-1, 1, TOTAL_TICKS, NUM_NOTES)
+            x = x.view(-1, TOTAL_TICKS, NUM_NOTES)
             # Encode data
-            encoded_data = vae.encoder(x)
+            # encoded_data = vae.encoder(x)
             # Decode data
             x_hat = vae(x)
             # loss = ((x - x_hat)**2).sum() + vae.encoder.kl
@@ -146,9 +149,10 @@ if __name__ == '__main__':
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print(f'Selected device: {device}')
 
-    vae = VariationalAutoencoder(device, latent_dims=LATENT_DIMS)
-    lr = 1e-4
-    optim = torch.optim.Adam(vae.parameters(), lr=lr, weight_decay=1e-5)
+    vae = LSTM_VAE(device, latent_dims=LATENT_DIMS, hidden_size=HIDDEN_DIMS, num_layers=NUM_LAYERS, dropout=DROPOUT)
+    lr = 1e-5
+    # optim = torch.optim.Adam(vae.parameters(), lr=lr, weight_decay=1e-5)
+    optim = torch.optim.Rprop(vae.parameters(), lr=lr)
 
     losser = BCEWithLogitsLoss(reduction='mean')
 
